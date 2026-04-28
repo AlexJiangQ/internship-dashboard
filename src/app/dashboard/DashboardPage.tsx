@@ -8,19 +8,35 @@ import {
   computeDashboardStats,
   createEmptyStats
 } from "../../lib/data/stats";
-import { PREFERENCE_OPTIONS } from "../../lib/preferences/preferenceOptions";
 import {
   buildSubmittedPreferencePayload,
   createEmptyPreferencePayload,
-  togglePreferenceSelection
+  getAllWorkNatureOptions,
+  getAvailableJobPositions,
+  getSuggestedWorkNatureOptions,
+  syncSelectedJobPositionsWithDirections,
+  toggleStudentPreferenceSelection,
+  toggleJobDirectionSelection,
+  toggleJobPositionSelection,
+  toggleWorkNatureSelection,
+  updateDurationSelection
 } from "../../lib/preferences/preferenceState";
+import {
+  DURATION_OPTIONS,
+  JOB_DIRECTION_OPTIONS,
+  STUDENT_PREFERENCE_OPTIONS
+} from "../../lib/preferences/preferenceOptions";
 import type {
   DashboardComputationResult,
-  PreferenceKey,
   PreferencePayload
 } from "../../types/dashboard";
 
-const navItems = ["Dashboard", "AI Chatbot", "Filter", "Upload Data", "Config", "Settings"];
+type ActiveView = "dashboard" | "chatbot";
+
+const navItems: Array<{ id: ActiveView; label: string }> = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "chatbot", label: "AI Chatbot" }
+];
 const numberFormatter = new Intl.NumberFormat("en-US");
 
 const intensityColors = ["#5AB8A0", "#1f64d1", "#f59f00", "#e03131", "#adb5bd"];
@@ -70,6 +86,8 @@ export function DashboardPage() {
   );
   const [submittedPreferences, setSubmittedPreferences] =
     useState<PreferencePayload | null>(null);
+  const [showAllWorkNature, setShowAllWorkNature] = useState(false);
+  const [activeView, setActiveView] = useState<ActiveView>("dashboard");
 
   useEffect(() => {
     let isMounted = true;
@@ -107,13 +125,73 @@ export function DashboardPage() {
 
   const kpiItems = useMemo(() => formatKpis(result.stats), [result.stats]);
 
-  const handleTogglePreference = (key: PreferenceKey, option: string) => {
-    setDraftSelections((current) => togglePreferenceSelection(current, key, option));
+  const allWorkNatureOptions = useMemo(() => getAllWorkNatureOptions(), []);
+  const availableJobPositions = useMemo(
+    () => getAvailableJobPositions(draftSelections.jobDirections),
+    [draftSelections.jobDirections]
+  );
+  const suggestedWorkNatureOptions = useMemo(
+    () => getSuggestedWorkNatureOptions(draftSelections.jobPositions),
+    [draftSelections.jobPositions]
+  );
+  const displayedWorkNatureOptions = useMemo(
+    () => {
+      if (draftSelections.jobPositions.length === 0) {
+        return [];
+      }
+      return showAllWorkNature ? allWorkNatureOptions : suggestedWorkNatureOptions;
+    },
+    [
+      allWorkNatureOptions,
+      draftSelections.jobPositions.length,
+      showAllWorkNature,
+      suggestedWorkNatureOptions
+    ]
+  );
+  const showJobPositionPlaceholder = availableJobPositions.length === 0;
+  const showWorkNaturePlaceholder = draftSelections.jobPositions.length === 0;
+
+  useEffect(() => {
+    if (showWorkNaturePlaceholder && showAllWorkNature) {
+      setShowAllWorkNature(false);
+    }
+  }, [showAllWorkNature, showWorkNaturePlaceholder]);
+
+  const handleSkillToggle = (option: string) => {
+    setDraftSelections((current) =>
+      toggleStudentPreferenceSelection(current, "skills", option)
+    );
+  };
+
+  const handleDurationChange = (duration: string) => {
+    setDraftSelections((current) => updateDurationSelection(current, duration));
+  };
+
+  const handleJobDirectionToggle = (direction: string) => {
+    setDraftSelections((current) => {
+      const updatedDirections = toggleJobDirectionSelection(current, direction);
+      return syncSelectedJobPositionsWithDirections(updatedDirections);
+    });
+  };
+
+  const handleJobPositionToggle = (position: string) => {
+    setDraftSelections((current) => toggleJobPositionSelection(current, position));
+  };
+
+  const handleWorkNatureToggle = (workNature: string) => {
+    setDraftSelections((current) => toggleWorkNatureSelection(current, workNature));
   };
 
   const handleSubmitPreference = () => {
-    setSubmittedPreferences(buildSubmittedPreferencePayload(draftSelections));
+    const payload = buildSubmittedPreferencePayload(draftSelections);
+    setSubmittedPreferences(payload);
+    localStorage.setItem("recommendation_preferences", JSON.stringify(payload));
   };
+
+  const chatbotOutput = useMemo(
+    () => submittedPreferences ?? createEmptyPreferencePayload(),
+    [submittedPreferences]
+  );
 
   return (
     <div className="page-shell">
@@ -123,92 +201,107 @@ export function DashboardPage() {
           {navItems.map((item) => (
             <a
               href="#"
-              key={item}
-              className={item === "Dashboard" ? "active" : ""}
-              onClick={(event) => event.preventDefault()}
+              key={item.id}
+              className={item.id === activeView ? "active" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                setActiveView(item.id);
+              }}
             >
-              {item}
+              {item.label}
             </a>
           ))}
         </nav>
       </header>
 
       <main className="dashboard-layout">
-        <section className="hero">
-          <p className="hero-label">Dashboard</p>
-          <h1>Overview of internship opportunities</h1>
-        </section>
-
-        {isLoading ? (
-          <div className="status-card">Loading internship workbook...</div>
-        ) : null}
-
-        {!isLoading && error ? (
-          <div className="status-card error">
-            Unable to render dashboard. {error}
-          </div>
-        ) : null}
-
-        {!isLoading && !error && result.warnings.length > 0 ? (
-          <div className="status-card warning">
-            {result.warnings.map((warning) => (
-              <p key={warning}>{warning}</p>
-            ))}
-          </div>
-        ) : null}
-
-        {!isLoading && !error && result.stats.kpis.totalPositions === 0 ? (
-          <div className="status-card">No internship records found.</div>
-        ) : null}
-
-        {!isLoading && !error && result.stats.kpis.totalPositions > 0 ? (
+        {activeView === "dashboard" ? (
           <>
-            <section className="kpi-grid" aria-label="key indicators">
-              {kpiItems.map((item) => (
-                <KpiCard key={item.title} title={item.title} value={item.value} />
-              ))}
+            <section className="hero">
+              <p className="hero-label">Dashboard</p>
+              <h1>Overview of internship opportunities</h1>
             </section>
 
-            <TopCompaniesBar data={result.stats.topCompanies} />
+            {isLoading ? (
+              <div className="status-card">Loading internship workbook...</div>
+            ) : null}
 
-            <section className="pie-grid">
-              <PieChartCard
-                title="Work Intensity Distribution"
-                data={result.stats.workIntensity}
-                colors={intensityColors}
-              />
-              <PieChartCard
-                title="TOP 10 Technical Skills"
-                data={result.stats.technicalSkills}
-                colors={skillColors}
-              />
-              <PieChartCard
-                title="TOP 10 Work Focus Areas"
-                data={result.stats.workFocusAreas}
-                colors={focusColors}
-              />
-            </section>
+            {!isLoading && error ? (
+              <div className="status-card error">
+                Unable to render dashboard. {error}
+              </div>
+            ) : null}
 
-            <PreferenceSelectionPanel
-              options={PREFERENCE_OPTIONS}
-              value={draftSelections}
-              onToggle={handleTogglePreference}
-              onSubmit={handleSubmitPreference}
-            />
+            {!isLoading && !error && result.warnings.length > 0 ? (
+              <div className="status-card warning">
+                {result.warnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            ) : null}
 
-            <section className="preference-output">
-              <h3>Structured Preference Output</h3>
-              {submittedPreferences ? (
-                <pre>{JSON.stringify(submittedPreferences, null, 2)}</pre>
-              ) : (
-                <p className="preference-empty">
-                  Select your preferences and click "Generate Recommendation" to
-                  create output.
-                </p>
-              )}
-            </section>
+            {!isLoading && !error && result.stats.kpis.totalPositions === 0 ? (
+              <div className="status-card">No internship records found.</div>
+            ) : null}
+
+            {!isLoading && !error && result.stats.kpis.totalPositions > 0 ? (
+              <>
+                <section className="kpi-grid" aria-label="key indicators">
+                  {kpiItems.map((item) => (
+                    <KpiCard key={item.title} title={item.title} value={item.value} />
+                  ))}
+                </section>
+
+                <TopCompaniesBar data={result.stats.topCompanies} />
+
+                <section className="pie-grid">
+                  <PieChartCard
+                    title="Work Intensity Distribution"
+                    data={result.stats.workIntensity}
+                    colors={intensityColors}
+                  />
+                  <PieChartCard
+                    title="TOP 10 Technical Skills"
+                    data={result.stats.technicalSkills}
+                    colors={skillColors}
+                  />
+                  <PieChartCard
+                    title="TOP 10 Work Focus Areas"
+                    data={result.stats.workFocusAreas}
+                    colors={focusColors}
+                  />
+                </section>
+
+                <PreferenceSelectionPanel
+                  value={draftSelections}
+                  skillsOptions={STUDENT_PREFERENCE_OPTIONS.skills}
+                  durationOptions={DURATION_OPTIONS}
+                  jobDirectionOptions={JOB_DIRECTION_OPTIONS}
+                  availableJobPositions={availableJobPositions}
+                  displayedWorkNatureOptions={displayedWorkNatureOptions}
+                  showJobPositionPlaceholder={showJobPositionPlaceholder}
+                  showWorkNaturePlaceholder={showWorkNaturePlaceholder}
+                  showAllWorkNature={showAllWorkNature}
+                  canShowAllWorkNatureToggle={!showWorkNaturePlaceholder}
+                  onSkillToggle={handleSkillToggle}
+                  onDurationChange={handleDurationChange}
+                  onJobDirectionToggle={handleJobDirectionToggle}
+                  onJobPositionToggle={handleJobPositionToggle}
+                  onWorkNatureToggle={handleWorkNatureToggle}
+                  onToggleShowAllWorkNature={() =>
+                    setShowAllWorkNature((current) => !current)
+                  }
+                  onSubmit={handleSubmitPreference}
+                />
+              </>
+            ) : null}
           </>
-        ) : null}
+        ) : (
+          <section className="preference-output chatbot-output">
+            <h3>Structured Preference Output</h3>
+            <pre>{JSON.stringify(chatbotOutput, null, 2)}</pre>
+          </section>
+        )}
       </main>
     </div>
   );

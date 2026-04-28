@@ -197,6 +197,8 @@ a {
   border-radius: 16px;
   padding: 1rem;
   box-shadow: var(--shadow);
+  display: grid;
+  gap: 0.9rem;
 }
 
 .preference-header h2 {
@@ -212,10 +214,26 @@ a {
 }
 
 .preference-grid {
-  margin-top: 0.95rem;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.8rem;
+}
+
+.preference-grid-single {
+  grid-template-columns: 1fr;
+}
+
+.preference-block {
+  background: #f7faff;
+  border: 1px solid #d8e5f5;
+  border-radius: 14px;
+  padding: 0.85rem;
+}
+
+.preference-block-title {
+  margin: 0 0 0.72rem;
+  color: #274670;
+  font-size: 1rem;
 }
 
 .preference-group {
@@ -248,6 +266,42 @@ a {
 
 .preference-option input {
   accent-color: var(--primary);
+}
+
+.preference-placeholder {
+  margin: 0;
+  padding: 0.7rem 0.75rem;
+  border-radius: 10px;
+  background: #f1f6ff;
+  border: 1px solid #d4e1f4;
+  color: #47638b;
+  font-size: 0.9rem;
+}
+
+.preference-helper-row {
+  margin-bottom: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.preference-helper-label {
+  color: #48658f;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.preference-toggle-button {
+  border: 1px solid #c6d7ee;
+  background: #eff5ff;
+  color: #204e9b;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .preference-actions {
@@ -299,6 +353,10 @@ a {
 .preference-empty {
   margin: 0.65rem 0 0;
   color: var(--muted);
+}
+
+.chatbot-output {
+  margin-top: 0.2rem;
 }
 
 @media (max-width: 1024px) {

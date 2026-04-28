@@ -35,10 +35,12 @@ export interface DashboardComputationResult {
   warnings: string[];
 }
 
-export type PreferenceKey = "skills" | "work_focus" | "career_goal";
-
 export interface PreferencePayload {
   skills: string[];
   work_focus: string[];
   career_goal: string[];
+  duration: string;
+  jobDirections: string[];
+  jobPositions: string[];
+  workNature: string[];
 }
