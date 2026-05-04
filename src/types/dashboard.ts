@@ -8,6 +8,8 @@ export interface InternshipRow {
   Suggestions?: string | null;
   "Combined comments"?: string | null;
   "Job Position"?: string | null;
+  "Major "?: string | null;
+  "Overall performance"?: string | null;
 }
 
 export interface ChartPoint {

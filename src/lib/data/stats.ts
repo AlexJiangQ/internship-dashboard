@@ -5,10 +5,10 @@ import type {
   InternshipRow
 } from "../../types/dashboard";
 import {
+  getCanonicalCompanyDisplayName,
   parseNumeric,
   normalizeCompanyNameForUnique,
   roundNumber,
-  sanitizeCompanyLabel,
   toLowerText
 } from "./cleaners";
 import {
@@ -18,13 +18,20 @@ import {
   WORK_FOCUS_KEYWORDS
 } from "./keywordMaps";
 
-type IntensityBucket = "Light" | "Moderate" | "Intense" | "High-Intensity" | "Unknown";
+type DurationBucket =
+  | "1 Month"
+  | "3 Months"
+  | "6 Months"
+  | "9 Months"
+  | "12 Months and longer"
+  | "Unknown";
 
-const INTENSITY_ORDER: IntensityBucket[] = [
-  "Light",
-  "Moderate",
-  "Intense",
-  "High-Intensity",
+const DURATION_ORDER: DurationBucket[] = [
+  "1 Month",
+  "3 Months",
+  "6 Months",
+  "9 Months",
+  "12 Months and longer",
   "Unknown"
 ];
 
@@ -100,20 +107,23 @@ function buildTextBlob(row: InternshipRow): string {
   return KEYWORD_TEXT_COLUMNS.map((columnName) => toLowerText(row[columnName])).join(" ");
 }
 
-export function classifyWorkIntensity(hours: number | null): IntensityBucket {
-  if (hours === null) {
+export function classifyDurationBucket(days: number | null): DurationBucket {
+  if (days === null || days < 0) {
     return "Unknown";
   }
-  if (hours < 900) {
-    return "Light";
+  if (days <= 30) {
+    return "1 Month";
   }
-  if (hours <= 1200) {
-    return "Moderate";
+  if (days <= 90) {
+    return "3 Months";
   }
-  if (hours <= 1500) {
-    return "Intense";
+  if (days <= 180) {
+    return "6 Months";
   }
-  return "High-Intensity";
+  if (days <= 359) {
+    return "9 Months";
+  }
+  return "12 Months and longer";
 }
 
 export function createEmptyStats(): DashboardStats {
@@ -146,7 +156,7 @@ export function computeDashboardStats(rows: InternshipRow[]): DashboardComputati
   }
 
   const companyRecords = rows.map((row) => {
-    const label = sanitizeCompanyLabel(row["Company name"]);
+    const label = getCanonicalCompanyDisplayName(row["Company name"]);
     const key = normalizeCompanyNameForUnique(row["Company name"]);
     return { key, label };
   });
@@ -154,9 +164,8 @@ export function computeDashboardStats(rows: InternshipRow[]): DashboardComputati
   const totalCompanies = new Set(companyRecords.map((record) => record.key)).size;
   const totalPositions = rows.length;
 
-  const dayValues = rows
-    .map((row) => parseNumeric(row["Total working days"]))
-    .filter((value): value is number => value !== null);
+  const parsedWorkingDays = rows.map((row) => parseNumeric(row["Total working days"]));
+  const dayValues = parsedWorkingDays.filter((value): value is number => value !== null);
 
   const hourValues = rows.map((row) => parseNumeric(row["Total working hours"]));
 
@@ -175,17 +184,17 @@ export function computeDashboardStats(rows: InternshipRow[]): DashboardComputati
 
   const avgDailyHours = roundNumber(mean(dailyHours), 1);
 
-  const intensityCounter = new Map<IntensityBucket, number>(
-    INTENSITY_ORDER.map((bucket) => [bucket, 0])
+  const durationCounter = new Map<DurationBucket, number>(
+    DURATION_ORDER.map((bucket) => [bucket, 0])
   );
-  for (const hours of hourValues) {
-    const bucket = classifyWorkIntensity(hours);
-    intensityCounter.set(bucket, (intensityCounter.get(bucket) ?? 0) + 1);
+  for (const days of parsedWorkingDays) {
+    const bucket = classifyDurationBucket(days);
+    durationCounter.set(bucket, (durationCounter.get(bucket) ?? 0) + 1);
   }
 
-  const workIntensity = INTENSITY_ORDER.map((label) => ({
+  const durationDistribution = DURATION_ORDER.map((label) => ({
     label,
-    value: intensityCounter.get(label) ?? 0
+    value: durationCounter.get(label) ?? 0
   })).filter((item) => item.value > 0);
 
   const textBlobs = rows.map(buildTextBlob);
@@ -200,7 +209,7 @@ export function computeDashboardStats(rows: InternshipRow[]): DashboardComputati
         avgDailyHours
       },
       topCompanies: topCounts(companyRecords, 10),
-      workIntensity,
+      workIntensity: durationDistribution,
       technicalSkills: computeKeywordDistribution(textBlobs, TECHNICAL_SKILL_KEYWORDS, 10),
       workFocusAreas: computeKeywordDistribution(textBlobs, WORK_FOCUS_KEYWORDS, 10)
     }

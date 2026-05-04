@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getCanonicalCompanyDisplayName,
   normalizeCompanyNameForUnique,
   parseNumeric,
   roundNumber,
@@ -26,8 +27,15 @@ describe("company cleaners", () => {
   });
 
   it("normalizes company key for unique counting", () => {
-    expect(normalizeCompanyNameForUnique("  AIA Group  ")).toBe("aia group");
+    expect(normalizeCompanyNameForUnique("  AIA Group  ")).toBe("aia");
+    expect(normalizeCompanyNameForUnique("AIA International Limited")).toBe("aia");
     expect(normalizeCompanyNameForUnique(null)).toBe("unknown");
+  });
+
+  it("maps known aliases to canonical display name", () => {
+    expect(getCanonicalCompanyDisplayName("AIA International Limited")).toBe("AIA");
+    expect(getCanonicalCompanyDisplayName("AIA Hong Kong")).toBe("AIA");
+    expect(getCanonicalCompanyDisplayName("Unknown Startup")).toBe("Unknown Startup");
   });
 });
 

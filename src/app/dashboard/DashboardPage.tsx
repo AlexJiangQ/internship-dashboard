@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PerformanceDistributionBar } from "../../components/charts/PerformanceDistributionBar";
 import { PieChartCard } from "../../components/charts/PieChartCard";
 import { TopCompaniesBar } from "../../components/charts/TopCompaniesBar";
 import { KpiCard } from "../../components/kpi/KpiCard";
@@ -8,6 +9,13 @@ import {
   computeDashboardStats,
   createEmptyStats
 } from "../../lib/data/stats";
+import {
+  OVERVIEW_FILTER_OPTIONS,
+  type OverviewFilterOption,
+  computeOverviewKpis,
+  computePerformanceDistributionByGrade,
+  filterRowsByOverviewOption
+} from "../../lib/data/overview";
 import {
   buildSubmittedPreferencePayload,
   createEmptyPreferencePayload,
@@ -28,12 +36,14 @@ import {
 } from "../../lib/preferences/preferenceOptions";
 import type {
   DashboardComputationResult,
+  InternshipRow,
   PreferencePayload
 } from "../../types/dashboard";
 
-type ActiveView = "dashboard" | "chatbot";
+type ActiveView = "overview" | "dashboard" | "chatbot";
 
 const navItems: Array<{ id: ActiveView; label: string }> = [
+  { id: "overview", label: "Overview" },
   { id: "dashboard", label: "Dashboard" },
   { id: "chatbot", label: "AI Chatbot" }
 ];
@@ -65,17 +75,18 @@ const focusColors = [
   "#173f82"
 ];
 
-function formatKpis(stats: DashboardComputationResult["stats"]) {
+function formatOverviewKpis(kpis: ReturnType<typeof computeOverviewKpis>) {
   return [
-    { title: "Total Companies", value: numberFormatter.format(stats.kpis.totalCompanies) },
-    { title: "Total Positions", value: numberFormatter.format(stats.kpis.totalPositions) },
-    { title: "Avg Working Days", value: stats.kpis.avgWorkingDays.toFixed(0) },
-    { title: "Avg Daily Hours", value: `${stats.kpis.avgDailyHours.toFixed(1)}h` }
+    { title: "Internship Records", value: numberFormatter.format(kpis.internshipRecords) },
+    { title: "Total Companies", value: numberFormatter.format(kpis.totalCompanies) },
+    { title: "Avg Working Days", value: kpis.avgWorkingDays.toFixed(0) },
+    { title: "Avg Daily Hours", value: `${kpis.avgDailyHours.toFixed(1)}h` }
   ];
 }
 
 export function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [rawRows, setRawRows] = useState<InternshipRow[]>([]);
   const [result, setResult] = useState<DashboardComputationResult>({
     stats: createEmptyStats(),
     warnings: []
@@ -87,7 +98,11 @@ export function DashboardPage() {
   const [submittedPreferences, setSubmittedPreferences] =
     useState<PreferencePayload | null>(null);
   const [showAllWorkNature, setShowAllWorkNature] = useState(false);
-  const [activeView, setActiveView] = useState<ActiveView>("dashboard");
+  const [activeView, setActiveView] = useState<ActiveView>("overview");
+  const [overviewFilter, setOverviewFilter] =
+    useState<OverviewFilterOption>("Overall");
+  const [dashboardFilter, setDashboardFilter] =
+    useState<OverviewFilterOption>("Overall");
 
   useEffect(() => {
     let isMounted = true;
@@ -100,6 +115,7 @@ export function DashboardPage() {
         if (!isMounted) {
           return;
         }
+        setRawRows(rows);
         setResult(computeDashboardStats(rows));
       } catch (loadError) {
         if (!isMounted) {
@@ -123,7 +139,30 @@ export function DashboardPage() {
     };
   }, []);
 
-  const kpiItems = useMemo(() => formatKpis(result.stats), [result.stats]);
+  const filteredOverviewRows = useMemo(
+    () => filterRowsByOverviewOption(rawRows, overviewFilter),
+    [rawRows, overviewFilter]
+  );
+  const filteredDashboardRows = useMemo(
+    () => filterRowsByOverviewOption(rawRows, dashboardFilter),
+    [rawRows, dashboardFilter]
+  );
+  const dashboardResult = useMemo(
+    () => computeDashboardStats(filteredDashboardRows),
+    [filteredDashboardRows]
+  );
+  const overviewKpis = useMemo(
+    () => computeOverviewKpis(filteredOverviewRows),
+    [filteredOverviewRows]
+  );
+  const overviewKpiItems = useMemo(
+    () => formatOverviewKpis(overviewKpis),
+    [overviewKpis]
+  );
+  const gradeDistribution = useMemo(
+    () => computePerformanceDistributionByGrade(filteredOverviewRows),
+    [filteredOverviewRows]
+  );
 
   const allWorkNatureOptions = useMemo(() => getAllWorkNatureOptions(), []);
   const availableJobPositions = useMemo(
@@ -215,11 +254,16 @@ export function DashboardPage() {
       </header>
 
       <main className="dashboard-layout">
-        {activeView === "dashboard" ? (
+        {activeView === "overview" ? (
           <>
             <section className="hero">
-              <p className="hero-label">Dashboard</p>
-              <h1>Overview of internship opportunities</h1>
+              <p className="hero-label">Overview</p>
+              <h1>Internship Finder Overview</h1>
+              <p className="hero-description">
+                This dashboard summarizes historical internship records, helps
+                students understand relevant internship patterns, and supports
+                AI-based job recommendations with relevant information.
+              </p>
             </section>
 
             {isLoading ? (
@@ -240,35 +284,139 @@ export function DashboardPage() {
               </div>
             ) : null}
 
-            {!isLoading && !error && result.stats.kpis.totalPositions === 0 ? (
-              <div className="status-card">No internship records found.</div>
-            ) : null}
-
-            {!isLoading && !error && result.stats.kpis.totalPositions > 0 ? (
+            {!isLoading && !error ? (
               <>
-                <section className="kpi-grid" aria-label="key indicators">
-                  {kpiItems.map((item) => (
+                <section className="overview-filter-card">
+                  <h3>View Internship Data By</h3>
+                  <div className="segmented-control" role="tablist" aria-label="View Internship Data By">
+                    {OVERVIEW_FILTER_OPTIONS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`segment-btn ${overviewFilter === option ? "active" : ""}`}
+                        onClick={() => setOverviewFilter(option)}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="kpi-grid" aria-label="overview indicators">
+                  {overviewKpiItems.map((item) => (
                     <KpiCard key={item.title} title={item.title} value={item.value} />
                   ))}
                 </section>
 
-                <TopCompaniesBar data={result.stats.topCompanies} />
+                <PerformanceDistributionBar data={gradeDistribution} />
+
+                <section className="overview-guide">
+                  <h3>How to Use This Dashboard</h3>
+                  <div className="overview-guide-grid">
+                    <article className="overview-guide-card">
+                      <h4>Overview</h4>
+                      <p>
+                        Understand the dataset and gain a general impression of
+                        internship outcomes using overall records or a selected major.
+                      </p>
+                    </article>
+                    <article className="overview-guide-card">
+                      <h4>Dashboard</h4>
+                      <p>
+                        Explore detailed internship patterns, including company
+                        internship volume rankings, duration distribution, skill distribution,
+                        and preference selection.
+                      </p>
+                    </article>
+                    <article className="overview-guide-card">
+                      <h4>AI Chatbot</h4>
+                      <p>
+                        Use the structured preference output to support AI-based job
+                        recommendations, including suggested Job Position and relevant
+                        information.
+                      </p>
+                    </article>
+                  </div>
+                </section>
+              </>
+            ) : null}
+          </>
+        ) : activeView === "dashboard" ? (
+          <>
+            <section className="hero">
+              <p className="hero-label">Dashboard</p>
+              <h1>Detailed Internship Analysis</h1>
+              <p className="hero-description">
+                This section provides detailed visual analysis of internship
+                records, including Company Distribution, Duration Distribution,
+                Technical Skills, Work Focus Areas.
+              </p>
+            </section>
+
+            {!isLoading && !error ? (
+              <section className="overview-filter-card">
+                <h3>View Internship Data By</h3>
+                <div className="segmented-control" role="tablist" aria-label="View Internship Data By">
+                  {OVERVIEW_FILTER_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={`segment-btn ${dashboardFilter === option ? "active" : ""}`}
+                      onClick={() => setDashboardFilter(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {isLoading ? (
+              <div className="status-card">Loading internship workbook...</div>
+            ) : null}
+
+            {!isLoading && error ? (
+              <div className="status-card error">
+                Unable to render dashboard. {error}
+              </div>
+            ) : null}
+
+            {!isLoading && !error && dashboardResult.warnings.length > 0 ? (
+              <div className="status-card warning">
+                {dashboardResult.warnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            ) : null}
+
+            {!isLoading && !error && dashboardResult.stats.kpis.totalPositions === 0 ? (
+              <div className="status-card">No internship records found.</div>
+            ) : null}
+
+            {!isLoading && !error && dashboardResult.stats.kpis.totalPositions > 0 ? (
+              <>
+                <TopCompaniesBar data={dashboardResult.stats.topCompanies} />
 
                 <section className="pie-grid">
                   <PieChartCard
-                    title="Work Intensity Distribution"
-                    data={result.stats.workIntensity}
+                    title="Duration Distribution"
+                    data={dashboardResult.stats.workIntensity}
                     colors={intensityColors}
+                    showPercentageLabels
                   />
                   <PieChartCard
                     title="TOP 10 Technical Skills"
-                    data={result.stats.technicalSkills}
+                    data={dashboardResult.stats.technicalSkills}
                     colors={skillColors}
+                    showPercentageLabels
+                    minPercentageLabelThreshold={10}
                   />
                   <PieChartCard
                     title="TOP 10 Work Focus Areas"
-                    data={result.stats.workFocusAreas}
+                    data={dashboardResult.stats.workFocusAreas}
                     colors={focusColors}
+                    showPercentageLabels
+                    minPercentageLabelThreshold={10}
                   />
                 </section>
 

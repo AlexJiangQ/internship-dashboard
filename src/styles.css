@@ -106,6 +106,12 @@ a {
   color: #263a64;
 }
 
+.hero-description {
+  margin: 0.6rem 0 0;
+  color: #43506b;
+  line-height: 1.45;
+}
+
 .status-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -359,6 +365,83 @@ a {
   margin-top: 0.2rem;
 }
 
+.overview-filter-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow);
+}
+
+.overview-filter-card h3 {
+  margin: 0 0 0.7rem;
+  color: #243e66;
+  font-size: 1rem;
+}
+
+.segmented-control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.segment-btn {
+  border: 1px solid #d6dfec;
+  border-radius: 999px;
+  background: #edf1f7;
+  color: #3f4f6b;
+  padding: 0.36rem 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.segment-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.overview-guide {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow);
+}
+
+.overview-guide h3 {
+  margin: 0 0 0.8rem;
+  color: #243e66;
+  font-size: 1rem;
+}
+
+.overview-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.overview-guide-card {
+  border: 1px solid #d9e4f3;
+  border-radius: 12px;
+  padding: 0.7rem 0.75rem;
+  background: #f8fbff;
+}
+
+.overview-guide-card h4 {
+  margin: 0;
+  color: #224a8f;
+  font-size: 0.95rem;
+}
+
+.overview-guide-card p {
+  margin: 0.45rem 0 0;
+  color: #4a5c7a;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 @media (max-width: 1024px) {
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -369,6 +452,10 @@ a {
   }
 
   .preference-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-guide-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -2,27 +2,19 @@ import { Bar } from "react-chartjs-2";
 import type { ChartPoint } from "../../types/dashboard";
 import { ChartCard } from "./ChartCard";
 
-interface TopCompaniesBarProps {
+interface PerformanceDistributionBarProps {
   data: ChartPoint[];
 }
 
-export function TopCompaniesBar({ data }: TopCompaniesBarProps) {
-  if (data.length === 0) {
-    return (
-      <ChartCard title="Top 10 Companies by Internship Records" className="chart-large">
-        <p className="chart-empty">No company data available.</p>
-      </ChartCard>
-    );
-  }
-
+export function PerformanceDistributionBar({ data }: PerformanceDistributionBarProps) {
   return (
-    <ChartCard title="Top 10 Companies by Internship Records" className="chart-large">
+    <ChartCard title="Performance Distribution (Grade)" className="chart-large">
       <Bar
         data={{
           labels: data.map((point) => point.label),
           datasets: [
             {
-              label: "Number of Positions",
+              label: "Number of Records",
               data: data.map((point) => point.value),
               borderRadius: 6,
               backgroundColor: "#1f64d1"
@@ -39,14 +31,6 @@ export function TopCompaniesBar({ data }: TopCompaniesBarProps) {
           },
           scales: {
             x: {
-              ticks: {
-                maxRotation: 38,
-                minRotation: 38,
-                autoSkip: false,
-                font: {
-                  size: 10
-                }
-              },
               grid: {
                 display: false
               }
